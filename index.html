@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EP Tracker</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -28,6 +30,12 @@
     }
 
     /* =====  Typography  ===== */
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+    }
     body {font-family:'Montserrat',sans-serif;color:var(--cream);}
 
     h1,h2,h3,.title {font-family:'Playfair Display',serif;font-weight:500;color:var(--cream);}
@@ -82,44 +90,47 @@
     .hours-label { font-size: 18px; font-weight: bold; margin-bottom: 2px; color: #ffffff; } /* Changed to pure white */
     h2 { font-size: 20px; margin-bottom: 10px; color: var(--gold); }
     #refresh-container { text-align: center; margin-bottom: 10px; }
+    #main { height: fit-content; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1 style="text-align: center;">Evellon Points</h1>
-    <div id="persons-container">
-      <div class="person-section">
-        <h2>Rishi</h2>
-        <div id="controls">
-          <button id="rishi-decrement">-</button>
-          <div id="middle">
-            <span class="hours-label">Hours</span>
-            <span id="rishi-hours-display" class="hours-display">Loading...</span>
+  <div id="main">
+    <div class="card">
+      <h1 style="text-align: center;">Evellon Points</h1>
+      <div id="persons-container">
+        <div class="person-section">
+          <h2>Rishi</h2>
+          <div id="controls">
+            <button id="rishi-decrement">-</button>
+            <div id="middle">
+              <span class="hours-label">Hours</span>
+              <span id="rishi-hours-display" class="hours-display">Loading...</span>
+            </div>
+            <button id="rishi-increment">+</button>
           </div>
-          <button id="rishi-increment">+</button>
+          <div id="rishi-ep-display" class="ep-display">Loading EP...</div>
         </div>
-        <div id="rishi-ep-display" class="ep-display">Loading EP...</div>
+
+        <div class="person-section">
+          <h2>Harish</h2>
+          <div id="controls">
+            <button id="harish-decrement">-</button>
+            <div id="middle">
+              <span class="hours-label">Hours</span>
+              <span id="harish-hours-display" class="hours-display">Loading...</span>
+            </div>
+            <button id="harish-increment">+</button>
+          </div>
+          <div id="harish-ep-display" class="ep-display">Loading EP...</div>
+        </div>
       </div>
 
-      <div class="person-section">
-        <h2>Harish</h2>
-        <div id="controls">
-          <button id="harish-decrement">-</button>
-          <div id="middle">
-            <span class="hours-label">Hours</span>
-            <span id="harish-hours-display" class="hours-display">Loading...</span>
-          </div>
-          <button id="harish-increment">+</button>
-        </div>
-        <div id="harish-ep-display" class="ep-display">Loading EP...</div>
+      <div id="refresh-container">
+        <button id="refresh-graph">⟳</button>
       </div>
-    </div>
 
-    <div id="refresh-container">
-      <button id="refresh-graph">⟳</button>
+      <canvas id="ep-chart" width="600" height="300"></canvas>
     </div>
-
-    <canvas id="ep-chart" width="600" height="300"></canvas>
   </div>
 
   <script>
