@@ -89,7 +89,6 @@
     .hours-display { font-size: 18px; margin: 0; color: var(--parch); }
     .hours-label { font-size: 18px; font-weight: bold; margin-bottom: 2px; color: #ffffff; } /* Changed to pure white */
     h2 { font-size: 20px; margin-bottom: 10px; color: var(--gold); }
-    #refresh-container { text-align: center; margin-bottom: 10px; }
     #main { height: fit-content; }
   </style>
 </head>
@@ -109,6 +108,7 @@
             <button id="rishi-increment">+</button>
           </div>
           <div id="rishi-ep-display" class="ep-display">Loading EP...</div>
+          <button id="rishi-refresh">⟳</button>
         </div>
 
         <div class="person-section">
@@ -122,11 +122,8 @@
             <button id="harish-increment">+</button>
           </div>
           <div id="harish-ep-display" class="ep-display">Loading EP...</div>
+          <button id="harish-refresh">⟳</button>
         </div>
-      </div>
-
-      <div id="refresh-container">
-        <button id="refresh-graph">⟳</button>
       </div>
 
       <canvas id="ep-chart" width="600" height="300"></canvas>
@@ -434,9 +431,12 @@
       });
     });
 
-    // Refresh graph button handler
-    document.getElementById('refresh-graph').addEventListener('click', () => {
+    // Refresh graph button handlers
+    document.getElementById('rishi-refresh').addEventListener('click', () => {
       updateRishiEP(true);
+    });
+
+    document.getElementById('harish-refresh').addEventListener('click', () => {
       updateHarishEP(true);
     });
 
