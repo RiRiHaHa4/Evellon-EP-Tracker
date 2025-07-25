@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EP Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    /* =====  Brand Palette  ===== */
+    :root{
+      /* Greens (core background gradient) */
+      --green-dark:  #0b3f28;   /* deep forest */
+      --green-light: #197049;   /* rich emerald */
+
+      /* Accents & text */
+      --gold:    #c8b370;   /* soft champagne highlight */
+      --cream:   #f2f0ea;   /* primary copy */
+      --parch:   #dcd6c3;   /* secondary copy */
+
+      /* Layout tokens */
+      --radius: 20px;       /* rounded corners */
+      --shadow-soft: 0 4px 12px rgba(0,0,0,.25);  /* subtle depth */
+    }
+
+    /* =====  Typography  ===== */
+    body {font-family:'Montserrat',sans-serif;color:var(--cream);}
+
+    h1,h2,h3,.title {font-family:'Playfair Display',serif;font-weight:500;color:var(--cream);}
+
+    /* =====  Signature Background  ===== */
+    body{
+      background:linear-gradient(-45deg,
+                  var(--green-light),
+                  var(--green-dark),
+                  var(--green-light));
+      background-size:300% 300%;
+      animation:bgShift 15s ease infinite;
+    }
+    @keyframes bgShift{
+      0%{background-position:0% 50%;}
+     50%{background-position:100% 50%;}
+    100%{background-position:0% 50%;}
+    }
+
+    /* =====  Generic Card / Container  ===== */
+    .card{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow-soft);
+      padding:24 32px;
+      backdrop-filter:blur(8px);
+      color:var(--cream);
+    }
+
+    /* Custom styles for embed elements */
+    #persons-container { display: flex; flex-direction: row; justify-content: center; margin: 30px 0 0px 0; gap: 20px; }
+    .person-section { max-width: 300px; text-align: center; } /* Center text in sections */
+    #controls { display: flex; justify-content: center; align-items: center; margin: 10px 0; }
+    #middle { display: flex; flex-direction: column; align-items: center; }
+    button { 
+      padding: 10px 20px; 
+      margin: 5px; 
+      font-size: 16px; 
+      cursor: pointer; 
+      background-color: var(--green-dark); 
+      color: var(--cream); 
+      border: 1px solid var(--gold); 
+      border-radius: var(--radius); 
+      box-shadow: var(--shadow-soft); 
+      transition: background-color 0.3s; 
+    }
+    button:hover { background-color: var(--green-light); }
+    .ep-display { font-size: 24px; font-weight: bold; margin: 20px 0; color: var(--gold); }
+    canvas { max-width: 600px; margin: 20px auto; background: rgba(255,255,255,.06); border-radius: var(--radius); }
+    .hours-display { font-size: 18px; margin: 0; color: var(--parch); }
+    .hours-label { font-size: 18px; font-weight: bold; margin-bottom: 2px; color: #ffffff; } /* Changed to pure white */
+    h2 { font-size: 20px; margin-bottom: 10px; color: var(--gold); }
+    #refresh-container { text-align: center; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 style="text-align: center;">Evellon Points</h1>
+    <div id="persons-container">
+      <div class="person-section">
+        <h2>Rishi</h2>
+        <div id="controls">
+          <button id="rishi-decrement">-</button>
+          <div id="middle">
+            <span class="hours-label">Hours</span>
+            <span id="rishi-hours-display" class="hours-display">Loading...</span>
+          </div>
+          <button id="rishi-increment">+</button>
+        </div>
+        <div id="rishi-ep-display" class="ep-display">Loading EP...</div>
+      </div>
+
+      <div class="person-section">
+        <h2>Harish</h2>
+        <div id="controls">
+          <button id="harish-decrement">-</button>
+          <div id="middle">
+            <span class="hours-label">Hours</span>
+            <span id="harish-hours-display" class="hours-display">Loading...</span>
+          </div>
+          <button id="harish-increment">+</button>
+        </div>
+        <div id="harish-ep-display" class="ep-display">Loading EP...</div>
+      </div>
+    </div>
+
+    <div id="refresh-container">
+      <button id="refresh-graph">⟳</button>
+    </div>
+
+    <canvas id="ep-chart" width="600" height="300"></canvas>
+  </div>
+
+  <script>
+    // New Firebase project config (evellon-ep-tracker for hours and ep_history)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCieZ1XZYn2K7GizIoahKUE1ncej9FT75M",
+      authDomain: "evellon-ep-tracker.firebaseapp.com",
+      databaseURL: "https://evellon-ep-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "evellon-ep-tracker",
+      storageBucket: "evellon-ep-tracker.firebasestorage.app",
+      messagingSenderId: "765584535916",
+      appId: "1:765584535916:web:5610a4b9cfc89f4c964349",
+      measurementId: "G-3DYEZWH94T"
+    };
+
+    // Existing Firebase project config (evellon-streak-tracker for streaks)
+    const streaksFirebaseConfig = {
+      apiKey: "AIzaSyC39TMw6d2HtHxnT9R2AB3lhqNaCAbX2H0",
+      authDomain: "evellon-streak-tracker.firebaseapp.com",
+      databaseURL: "https://evellon-streak-tracker-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "evellon-streak-tracker",
+      storageBucket: "evellon-streak-tracker.firebasestorage.app",
+      messagingSenderId: "755072896437",
+      appId: "1:755072896437:web:808ff7699347f7e41fddfc",
+      measurementId: "G-XF5GRQEKS6"
+    };
+
+    // Initialize both Firebase apps
+    firebase.initializeApp(firebaseConfig);
+    const streaksApp = firebase.initializeApp(streaksFirebaseConfig, 'streaksApp');
+    const db = firebase.database();
+    const streaksDb = firebase.database(streaksApp);
+
+    console.log('Firebase apps initialized successfully');
+
+    // References for Rishi
+    const rishiHoursRef = db.ref('rishi/hours');
+    const rishiStreakRef = streaksDb.ref('rishi/streak');
+    const rishiHistoryRef = db.ref('rishi/ep_history');
+
+    // References for Harish
+    const harishHoursRef = db.ref('harish/hours');
+    const harishStreakRef = streaksDb.ref('harish/streak');
+    const harishHistoryRef = db.ref('harish/ep_history');
+
+    let currentRishiHours = 0;
+    let currentRishiStreak = 0;
+    let currentHarishHours = 0;
+    let currentHarishStreak = 0;
+    let chart;
+
+    const rishiLoaded = { hours: false, streak: false };
+    const harishLoaded = { hours: false, streak: false };
+
+    // Initialize Chart.js for overlaid EP timeline
+    function initChart() {
+      const ctx = document.getElementById('ep-chart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            {
+              label: 'Rishi',
+              data: [],
+              borderColor: '#2196F3',
+              backgroundColor: 'rgba(33, 150, 243, 0.4)', /* Increased opacity for stronger shade */
+              fill: true,
+              tension: 0.4,
+              pointRadius: 5,
+              pointHoverRadius: 7
+            },
+            {
+              label: 'Harish',
+              data: [],
+              borderColor: '#FFA500',
+              backgroundColor: 'rgba(255, 165, 0, 0.4)', /* Increased opacity for stronger shade */
+              fill: true,
+              tension: 0.4,
+              pointRadius: 5,
+              pointHoverRadius: 7
+            }
+          ]
+        },
+        options: {
+          scales: {
+            x: {
+              type: 'time',
+              time: { unit: 'day' },
+              title: { display: true, text: 'Date', color: '#ffffff' }, /* Changed to pure white */
+              ticks: { color: '#ffffff' } /* Changed to pure white for x-axis ticks */
+            },
+            y: { 
+              title: { display: true, text: 'EP', color: '#ffffff' }, /* Changed to pure white */
+              ticks: { color: '#ffffff' } /* Changed to pure white for y-axis ticks */
+            }
+          },
+          plugins: {
+            legend: { 
+              display: true, 
+              position: 'top',
+              labels: { color: '#ffffff' } /* Legend labels already pure white */
+            },
+            tooltip: {
+              enabled: true,
+              mode: 'nearest',
+              backgroundColor: 'var(--green-dark)',
+              titleColor: '#ffffff', /* Tooltip title already pure white */
+              bodyColor: '#ffffff', /* Tooltip body already pure white */
+              callbacks: {
+                title: function(tooltipItems) {
+                  const date = new Date(tooltipItems[0].raw.x);
+                  console.log('Tooltip title data:', tooltipItems[0].raw);
+                  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                },
+                label: function(tooltipItem) {
+                  return 'EP: ' + tooltipItem.raw.y;
+                }
+              }
+            }
+          },
+          hover: {
+            mode: 'nearest',
+            intersect: true
+          }
+        }
+      });
+      console.log('Chart initialized');
+    }
+
+    // Function to update chart with last 30 days data
+    function updateChart() {
+      const minTimestamp = Date.now() - 30 * 24 * 60 * 60 * 1000; // Last 30 days
+
+      // Fetch Rishi history
+      rishiHistoryRef.orderByChild('timestamp').startAt(minTimestamp).once('value', (snapshot) => {
+        const rishiData = [];
+        snapshot.forEach((child) => {
+          const val = child.val();
+          rishiData.push({ x: new Date(val.timestamp), y: val.ep });
+        });
+        chart.data.datasets[0].data = rishiData;
+
+        // Fetch Harish history
+        harishHistoryRef.orderByChild('timestamp').startAt(minTimestamp).once('value', (harishSnapshot) => {
+          const harishData = [];
+          harishSnapshot.forEach((child) => {
+            const val = child.val();
+            harishData.push({ x: new Date(val.timestamp), y: val.ep });
+          });
+          chart.data.datasets[1].data = harishData;
+
+          chart.update();
+          console.log('Chart updated with Rishi points:', rishiData.length, 'Harish points:', harishData.length);
+        }, (error) => {
+          console.error('Error fetching Harish history:', error);
+        });
+      }, (error) => {
+        console.error('Error fetching Rishi history:', error);
+      });
+    }
+
+    // Update Rishi EP and optionally history
+    function updateRishiEP(addHistory) {
+      const ep = Math.floor(currentRishiHours) + 2 * currentRishiStreak;
+      document.getElementById('rishi-ep-display').innerText = `${ep} EP`;
+      console.log('Rishi EP updated to:', ep);
+
+      if (addHistory) {
+        const timestamp = Date.now();
+        rishiHistoryRef.child(timestamp).set({ ep, timestamp }).then(() => {
+          console.log('Rishi history entry added:', timestamp, ep);
+          updateChart();
+        }).catch((error) => {
+          console.error('Error adding Rishi history:', error);
+        });
+      }
+    }
+
+    // Update Harish EP and optionally history
+    function updateHarishEP(addHistory) {
+      const ep = Math.floor(currentHarishHours) + 2 * currentHarishStreak;
+      document.getElementById('harish-ep-display').innerText = `${ep} EP`;
+      console.log('Harish EP updated to:', ep);
+
+      if (addHistory) {
+        const timestamp = Date.now();
+        harishHistoryRef.child(timestamp).set({ ep, timestamp }).then(() => {
+          console.log('Harish history entry added:', timestamp, ep);
+          updateChart();
+        }).catch((error) => {
+          console.error('Error adding Harish history:', error);
+        });
+      }
+    }
+
+    // Check if Rishi data is fully loaded
+    function checkRishiLoaded() {
+      if (rishiLoaded.hours && rishiLoaded.streak) {
+        updateRishiEP(false);
+      }
+    }
+
+    // Check if Harish data is fully loaded
+    function checkHarishLoaded() {
+      if (harishLoaded.hours && harishLoaded.streak) {
+        updateHarishEP(false);
+      }
+    }
+
+    // Firebase listeners for Rishi
+    rishiHoursRef.on('value', (snapshot) => {
+      currentRishiHours = snapshot.val() || 0;
+      document.getElementById('rishi-hours-display').innerText = currentRishiHours;
+      console.log('Rishi hours updated to:', currentRishiHours);
+      if (!rishiLoaded.hours) {
+        rishiLoaded.hours = true;
+        checkRishiLoaded();
+      } else {
+        updateRishiEP(false);
+      }
+    }, (error) => {
+      console.error('Error listening to Rishi hours:', error);
+      document.getElementById('rishi-hours-display').innerText = 'Error loading';
+    });
+
+    rishiStreakRef.on('value', (snapshot) => {
+      currentRishiStreak = snapshot.val() || 0;
+      console.log('Rishi streak updated to:', currentRishiStreak);
+      if (!rishiLoaded.streak) {
+        rishiLoaded.streak = true;
+        checkRishiLoaded();
+      } else {
+        updateRishiEP(true);
+      }
+    }, (error) => {
+      console.error('Error listening to Rishi streak:', error);
+      document.getElementById('rishi-ep-display').innerText = 'Error loading streak';
+    });
+
+    // Firebase listeners for Harish
+    harishHoursRef.on('value', (snapshot) => {
+      currentHarishHours = snapshot.val() || 0;
+      document.getElementById('harish-hours-display').innerText = currentHarishHours;
+      console.log('Harish hours updated to:', currentHarishHours);
+      if (!harishLoaded.hours) {
+        harishLoaded.hours = true;
+        checkHarishLoaded();
+      } else {
+        updateHarishEP(false);
+      }
+    }, (error) => {
+      console.error('Error listening to Harish hours:', error);
+      document.getElementById('harish-hours-display').innerText = 'Error loading';
+    });
+
+    harishStreakRef.on('value', (snapshot) => {
+      currentHarishStreak = snapshot.val() || 0;
+      console.log('Harish streak updated to:', currentHarishStreak);
+      if (!harishLoaded.streak) {
+        harishLoaded.streak = true;
+        checkHarishLoaded();
+      } else {
+        updateHarishEP(true);
+      }
+    }, (error) => {
+      console.error('Error listening to Harish streak:', error);
+      document.getElementById('harish-ep-display').innerText = 'Error loading streak';
+    });
+
+    // Button handlers for Rishi
+    document.getElementById('rishi-increment').addEventListener('click', () => {
+      rishiHoursRef.transaction((val) => (val || 0) + 1).then((result) => {
+        console.log('Rishi increment successful:', result.committed, result.snapshot.val());
+      }).catch((error) => {
+        console.error('Rishi increment error:', error);
+      });
+    });
+
+    document.getElementById('rishi-decrement').addEventListener('click', () => {
+      rishiHoursRef.transaction((val) => Math.max(0, (val || 0) - 1)).then((result) => {
+        console.log('Rishi decrement successful:', result.committed, result.snapshot.val());
+      }).catch((error) => {
+        console.error('Rishi decrement error:', error);
+      });
+    });
+
+    // Button handlers for Harish
+    document.getElementById('harish-increment').addEventListener('click', () => {
+      harishHoursRef.transaction((val) => (val || 0) + 1).then((result) => {
+        console.log('Harish increment successful:', result.committed, result.snapshot.val());
+      }).catch((error) => {
+        console.error('Harish increment error:', error);
+      });
+    });
+
+    document.getElementById('harish-decrement').addEventListener('click', () => {
+      harishHoursRef.transaction((val) => Math.max(0, (val || 0) - 1)).then((result) => {
+        console.log('Harish decrement successful:', result.committed, result.snapshot.val());
+      }).catch((error) => {
+        console.error('Harish decrement error:', error);
+      });
+    });
+
+    // Refresh graph button handler
+    document.getElementById('refresh-graph').addEventListener('click', () => {
+      updateRishiEP(true);
+      updateHarishEP(true);
+    });
+
+    // Start chart
+    initChart();
+
+    // Initial chart update
+    updateChart();
+
+    // Fallback for initial load (adjusted to not add history)
+    setTimeout(() => {
+      if (document.getElementById('rishi-hours-display').innerText === 'Loading...') {
+        console.log('Fallback: Forcing initial Rishi hours display');
+        document.getElementById('rishi-hours-display').innerText = 0;
+      }
+      if (document.getElementById('rishi-ep-display').innerText === 'Loading EP...') {
+        console.log('Fallback: Forcing initial Rishi EP update without history');
+        updateRishiEP(false);
+      }
+      if (document.getElementById('harish-hours-display').innerText === 'Loading...') {
+        console.log('Fallback: Forcing initial Harish hours display');
+        document.getElementById('harish-hours-display').innerText = 0;
+      }
+      if (document.getElementById('harish-ep-display').innerText === 'Loading EP...') {
+        console.log('Fallback: Forcing initial Harish EP update without history');
+        updateHarishEP(false);
+      }
+      updateChart();
+    }, 5000);
+  </script>
+</body>
+</html>
